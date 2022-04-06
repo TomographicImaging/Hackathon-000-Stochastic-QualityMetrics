@@ -1,9 +1,21 @@
-#TODO: - multi resolution approach ("smoothing before calcuating metrics)
+#TODO: - multi resolution approach ("smoothing before calcuating metrics) / function to apply
+#        to test / reference image data before calculating stuff
 #      - getter and setter methods
-#      - how to save / log results (e.g. csv file, tensorboard file ...)
+
+# from tensorboard.backend.event_processing import event_accumulator
+# ea = event_accumulator.EventAccumulator('events.out.tfevents.1649243128.amun')
+# ea.Reload()
+# pd.DataFrame(ea.Scalars('global_metrics'))
+
+# Discussion Tue afternoon:
+# - implement metrics / statistics that work on ImageData?
+# - method for data reading
+# - handle non-scalar return values
+# - add pre-processing function that is called before calculating metrics / stats
 
 import numpy as np
 import cil.framework
+import tensorboardX
 
 def MSE(x,y):
   """ mean squared error between two numpy arrays
@@ -38,6 +50,9 @@ class ImageQualityCallback:
     reference_image: ImageData
       containing the reference image used to calculate the metrics
 
+    tb_summary_writer ; tensorboardX SummaryWriter
+      summary writer used to log results to tensorboard event files
+
     roi_mask_dict : dictionary of ImageData objects
       list containing one binary ImageData object for every ROI to be
       evaluated. Voxels with values 1 are considered part of the ROI
@@ -61,11 +76,15 @@ class ImageQualityCallback:
 
 
     """
-    def __init__(self, reference_image, roi_mask_dict = None, metrics_dict = None,
+    def __init__(self, reference_image, tb_summary_writer, roi_mask_dict = None, metrics_dict = None,
                        statistics_dict = None):
     
         # the reference image
         self.reference_image = reference_image
+        self.reference_image_array = self.reference_image.as_array()
+
+        # tensorboard summary writer
+        self.tb_summary_writer = tb_summary_writer
 
         self.roi_indices_dict = {}
 
@@ -87,50 +106,42 @@ class ImageQualityCallback:
           test image where metrics and measure should be computed on
 
         """
-        
+       
+        # get numpy arrays behing test ImageData
+        test_image_array = test_image.as_array()
+
         # (1) calculate global metrics and statistics
         global_metrics    = {}
         global_statistics = {}
 
         for metric_name, metric in self.metrics_dict.items():
-            global_metrics[metric_name] = metric(test_image.as_array().ravel(), 
-                                                 self.reference_image.as_array().ravel())
+            global_metrics[metric_name] = metric(test_image_array.ravel(), 
+                                                 self.reference_image_array.ravel())
 
         for statistic_name, statistic in self.statistics_dict.items():
-            global_statistics[statistic_name] = statistic(test_image.as_array().ravel())
+            global_statistics[statistic_name] = statistic(test_image_array.ravel())
        
+        self.tb_summary_writer.add_scalars('global_metrics', global_metrics, iteration)
+        self.tb_summary_writer.add_scalars('global_statistics', global_statistics, iteration)
   
-        print('\nglobal metrics')
-        print(global_metrics)
-        print('\nglobal statistics')
-        print(global_statistics)
-
         # (2) caluclate local metrics and statistics
-        all_roi_metrics    = {}
-        all_roi_statistics = {}
 
         for roi_name, roi_inds in self.roi_indices_dict.items():
-          roi_metrics    = {}
-          roi_statistics = {}
+            roi_metrics    = {}
+            roi_statistics = {}
 
-          for metric_name, metric in self.metrics_dict.items():
-              roi_metrics[metric_name] = metric(test_image.as_array()[roi_inds].ravel(), 
-                                                self.reference_image.as_array()[roi_inds].ravel())
+            for metric_name, metric in self.metrics_dict.items():
+                roi_metrics[metric_name] = metric(test_image_array[roi_inds], 
+                                                  self.reference_image_array[roi_inds])
 
-          all_roi_metrics[roi_name] = roi_metrics
+            for statistic_name, statistic in self.statistics_dict.items():
+                roi_statistics[statistic_name] = statistic(test_image_array[roi_inds])
 
-          for statistic_name, statistic in self.statistics_dict.items():
-              roi_statistics[statistic_name] = statistic(test_image.as_array()[roi_inds].ravel())
+            self.tb_summary_writer.add_scalars(f'{roi_name}_metrics', roi_metrics, iteration)
+            self.tb_summary_writer.add_scalars(f'{roi_name}_statistics', roi_statistics, iteration)
 
-          all_roi_statistics[roi_name] = roi_statistics
-
-        print('\nROI metrics')
-        print(all_roi_metrics)
-        print('\nROI statistics')
-        print(all_roi_statistics)
-
-        # (3) save / log results
-        
+        # (3) log the value of the cost function
+        self.tb_summary_writer.add_scalar('cost', last_cost, iteration)
 #------------------------------------------------------------------------------------------------------
 
 
@@ -165,10 +176,21 @@ if __name__ == '__main__':
     roi_image_dict['roi_2'] = cil.framework.ImageData(array = mask_2, geometry = image_geom)
 
 
+    # create a tensorboardX summary writer
+    from datetime import datetime
+    dt_string = datetime.now().strftime("%Y%m%d-%H%M%S")
+    tb_summary_writer = tensorboardX.SummaryWriter(f'runs/exp-{dt_string}')
+
     # instanciate ImageQualityCallback
-    img_qual_callback = ImageQualityCallback(ref_image, roi_mask_dict = roi_image_dict,
+    img_qual_callback = ImageQualityCallback(ref_image, tb_summary_writer,
+                                             roi_mask_dict = roi_image_dict,
                                              metrics_dict = {'MSE':MSE, 'MAE':MAE, 'PSNR':PSNR},
                                              statistics_dict = {'MEAN': (lambda x: x.mean()),
                                                                 'STDDEV': (lambda x: x.std())})
 
     img_qual_callback.eval(1, 1, test_image)
+    img_qual_callback.eval(2, 1, test_image)
+    img_qual_callback.eval(3, 1, test_image)
+    img_qual_callback.eval(4, 1, test_image)
+
+    tb_summary_writer.close()
