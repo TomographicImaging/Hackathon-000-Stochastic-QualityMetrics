@@ -2,15 +2,8 @@
 #        to test / reference image data before calculating stuff
 #      - getter and setter methods
 
-# from tensorboard.backend.event_processing import event_accumulator
-# ea = event_accumulator.EventAccumulator('events.out.tfevents.1649243128.amun')
-# ea.Reload()
-# ea.Tags()['scalars']
-# pd.DataFrame(ea.Scalars('global_metrics'))
-
 # Discussion Tue afternoon:
 # - implement metrics / statistics that work on ImageData?
-# - method for tensorboard data reading
 # - handle non-scalar return values
 # - add pre-processing function that is called before calculating metrics / stats
 
