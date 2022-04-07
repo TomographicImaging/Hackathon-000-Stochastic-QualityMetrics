@@ -55,7 +55,7 @@ from tensorboard.backend.event_processing import event_accumulator
 from pathlib import Path
 
 # set this to the path of your experiment
-exp_path = Path('runs/exp-20220406-172033')
+exp_path = sorted(list(Path('runs').glob('exp-*')))[-1]
 
 #----------------------------------------------------------------------------------------------
 

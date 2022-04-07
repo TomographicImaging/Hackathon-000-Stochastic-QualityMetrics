@@ -1,6 +1,4 @@
-#TODO: - multi resolution approach ("smoothing before calcuating metrics) / function to apply
-#        to test / reference image data before calculating stuff
-#      - getter and setter methods
+#TODO: - getter and setter methods
 
 # Discussion Tue afternoon:
 # - implement metrics / statistics that work on ImageData?
@@ -11,28 +9,30 @@ import numpy as np
 import cil.framework
 import tensorboardX
 
+from scipy.ndimage import gaussian_filter
+
 def MSE(x,y):
-  """ mean squared error between two numpy arrays
-  """
-  return ((x-y)**2).mean()
+    """ mean squared error between two numpy arrays
+    """
+    return ((x-y)**2).mean()
 
 def MAE(x,y):
-  """ mean absolute error between two numpy arrays
-  """
-  return np.abs(x-y).mean()
+    """ mean absolute error between two numpy arrays
+    """
+    return np.abs(x-y).mean()
 
 def PSNR(x, y, scale = None):
-  """ peak signal to noise ratio between two numpy arrays x and y
-      y is considered to be the reference array and the default scale
-      needed for the PSNR is assumed to be the max of this array
-  """
-
-  mse = ((x-y)**2).mean()
-
-  if scale == None:
-    scale = y.max()
-
-  return 10*np.log10((scale**2) / mse)
+    """ peak signal to noise ratio between two numpy arrays x and y
+        y is considered to be the reference array and the default scale
+        needed for the PSNR is assumed to be the max of this array
+    """
+  
+    mse = ((x-y)**2).mean()
+  
+    if scale == None:
+        scale = y.max()
+  
+    return 10*np.log10((scale**2) / mse)
 
 
 class ImageQualityCallback:
@@ -41,7 +41,7 @@ class ImageQualityCallback:
     Parameters
     ----------
 
-    reference_image: ImageData
+    reference_image: CIL or SIRF ImageData
       containing the reference image used to calculate the metrics
 
     tb_summary_writer ; tensorboardX SummaryWriter
@@ -66,76 +66,118 @@ class ImageQualityCallback:
       1-dimensional numpy array x to a scalar value.
       E.g. mean(x), std_deviation(x) that calculate global and / or
       ROI mean and standard deviations.
-      
+
+    statistics_dict : list of floats
+      Containing FWHMs (mm) of Gaussian post smoothing kernels to be applied
+      before calculating all metrics and statistics.
+      Default [5., 8.]
 
 
     """
-    def __init__(self, reference_image, tb_summary_writer, roi_mask_dict = None, metrics_dict = None,
-                       statistics_dict = None):
+    def __init__(self, reference_image, 
+                       tb_summary_writer, 
+                       roi_mask_dict   = None,
+                       metrics_dict    = None,
+                       statistics_dict = None,
+                       post_smoothing_fwhms_mm_list = [5., 8.]):
     
         # the reference image
         self.reference_image = reference_image
-        self.reference_image_array = self.reference_image.as_array()
 
         # tensorboard summary writer
         self.tb_summary_writer = tb_summary_writer
 
         self.roi_indices_dict = {}
 
-        for key, value in roi_mask_dict.items():
-          self.roi_indices_dict[key] = np.where(roi_mask_dict[key].as_array() == 1)
+        if roi_mask_dict is not None:
+            for key, value in roi_mask_dict.items():
+                self.roi_indices_dict[key] = np.where(roi_mask_dict[key].as_array() == 1)
+        else:
+            self.roi_indices_dict = None
 
         self.metrics_dict = metrics_dict
 
         self.statistics_dict = statistics_dict
 
+        self.post_smoothing_fwhms_mm_list = post_smoothing_fwhms_mm_list
+        if 0 not in self.post_smoothing_fwhms_mm_list:
+            self.post_smoothing_fwhms_mm_list.insert(0,0)
+
+        self.voxel_size_mm = (ref_image.geometry.voxel_size_z,
+                              ref_image.geometry.voxel_size_y,
+                              ref_image.geometry.voxel_size_x)
+
     def eval(self, iteration, last_cost , test_image):
         r""" Callback function called by CIL algorithm that calculates global and local
-            metrics and measures
+             metrics and measures
 
         Parameters
         ----------
 
-        test_image : ImageData
+        iteration : int
+          current iteration
+
+        last_cost : float
+          current value of objective function
+
+        test_image : CIL or SIRF ImageData
           test image where metrics and measure should be computed on
 
         """
        
-        # get numpy arrays behing test ImageData
-        test_image_array = test_image.as_array()
+        # get numpy arrays behind test ImageData
+        test_image_array      = test_image.as_array()
+        reference_image_array = self.reference_image.as_array()
 
-        # (1) calculate global metrics and statistics
-        global_metrics    = {}
-        global_statistics = {}
+        for post_smoothing_fwhm_mm in self.post_smoothing_fwhms_mm_list:
+            if post_smoothing_fwhm_mm > 0:
+                ps_str = f'_{post_smoothing_fwhm_mm}mm_smoothed'
+            else:
+                ps_str = ''
 
-        for metric_name, metric in self.metrics_dict.items():
-            global_metrics[metric_name] = metric(test_image_array.ravel(), 
-                                                 self.reference_image_array.ravel())
 
-        for statistic_name, statistic in self.statistics_dict.items():
-            global_statistics[statistic_name] = statistic(test_image_array.ravel())
-       
-        self.tb_summary_writer.add_scalars('global_metrics', global_metrics, iteration)
-        self.tb_summary_writer.add_scalars('global_statistics', global_statistics, iteration)
+            if post_smoothing_fwhm_mm > 0:
+                sig = post_smoothing_fwhm_mm / (2.35*np.array(self.voxel_size_mm))
+                test_image_array_ps      = gaussian_filter(test_image_array, sig)
+                reference_image_array_ps = gaussian_filter(reference_image_array, sig)
+            else:
+                test_image_array_ps      = test_image_array
+                reference_image_array_ps = reference_image_array
+
+            # (1) calculate global metrics and statistics
+            global_metrics    = {}
+            global_statistics = {}
+
+            if self.metrics_dict is not None:
+                for metric_name, metric in self.metrics_dict.items():
+                    global_metrics[metric_name] = metric(test_image_array_ps.ravel(), 
+                                                         reference_image_array_ps.ravel())
+                self.tb_summary_writer.add_scalars(f'global_metrics{ps_str}', global_metrics, iteration)
+
+            if self.statistics_dict is not None:
+                for statistic_name, statistic in self.statistics_dict.items():
+                    global_statistics[statistic_name] = statistic(test_image_array_ps.ravel())
+                self.tb_summary_writer.add_scalars(f'global_statistics{ps_str}', global_statistics, iteration)
   
-        # (2) caluclate local metrics and statistics
+            # (2) caluclate local metrics and statistics
+            if self.roi_indices_dict is not None:
+                for roi_name, roi_inds in self.roi_indices_dict.items():
+                    roi_metrics    = {}
+                    roi_statistics = {}
 
-        for roi_name, roi_inds in self.roi_indices_dict.items():
-            roi_metrics    = {}
-            roi_statistics = {}
+                    if self.metrics_dict is not None:
+                        for metric_name, metric in self.metrics_dict.items():
+                            roi_metrics[metric_name] = metric(test_image_array_ps[roi_inds], 
+                                                              reference_image_array_ps[roi_inds])
+                        self.tb_summary_writer.add_scalars(f'{roi_name}_metrics{ps_str}', roi_metrics, iteration)
 
-            for metric_name, metric in self.metrics_dict.items():
-                roi_metrics[metric_name] = metric(test_image_array[roi_inds], 
-                                                  self.reference_image_array[roi_inds])
+                    if self.statistics_dict is not None:
+                        for statistic_name, statistic in self.statistics_dict.items():
+                            roi_statistics[statistic_name] = statistic(test_image_array_ps[roi_inds])
+                        self.tb_summary_writer.add_scalars(f'{roi_name}_statistics{ps_str}', roi_statistics, iteration)
 
-            for statistic_name, statistic in self.statistics_dict.items():
-                roi_statistics[statistic_name] = statistic(test_image_array[roi_inds])
-
-            self.tb_summary_writer.add_scalars(f'{roi_name}_metrics', roi_metrics, iteration)
-            self.tb_summary_writer.add_scalars(f'{roi_name}_statistics', roi_statistics, iteration)
-
-        # (3) log the value of the cost function
-        self.tb_summary_writer.add_scalar('cost', last_cost, iteration)
+            # (3) log the value of the cost function
+            self.tb_summary_writer.add_scalar('cost', last_cost, iteration)
 #------------------------------------------------------------------------------------------------------
 
 
@@ -145,12 +187,15 @@ if __name__ == '__main__':
     np.random.seed(1)
 
     # image dimension / shape of test images
-    image_shape = (3,4,5)
+    image_shape = (30,40,50)
 
     # setup standard image geometry
-    image_geom = cil.framework.ImageGeometry(voxel_num_x = image_shape[2], 
-                                             voxel_num_y = image_shape[1],
-                                             voxel_num_z = image_shape[0])
+    image_geom = cil.framework.ImageGeometry(voxel_num_x  = image_shape[2], 
+                                             voxel_num_y  = image_shape[1],
+                                             voxel_num_z  = image_shape[0],
+                                             voxel_size_x = 2.78,
+                                             voxel_size_y = 2.98,
+                                             voxel_size_z = 3.12)
 
 
     # setup a test and reference image
@@ -180,11 +225,12 @@ if __name__ == '__main__':
                                              roi_mask_dict = roi_image_dict,
                                              metrics_dict = {'MSE':MSE, 'MAE':MAE, 'PSNR':PSNR},
                                              statistics_dict = {'MEAN': (lambda x: x.mean()),
-                                                                'STDDEV': (lambda x: x.std())})
+                                                                'STDDEV': (lambda x: x.std()),
+                                                                'MAX': (lambda x: x.max())})
 
     img_qual_callback.eval(1, 1, test_image)
-    img_qual_callback.eval(2, 1, test_image)
-    img_qual_callback.eval(3, 1, test_image)
-    img_qual_callback.eval(4, 1, test_image)
+    img_qual_callback.eval(2, 1, test_image*1.1)
+    img_qual_callback.eval(3, 1, test_image*0.9)
+    img_qual_callback.eval(4, 1, test_image*1.2)
 
     tb_summary_writer.close()
