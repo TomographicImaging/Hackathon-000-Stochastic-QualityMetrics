@@ -83,7 +83,7 @@ class ImageQualityCallback:
         self.roi_indices_dict = {}
 
         for key, value in roi_mask_dict.items():
-          self.roi_indices_dict[key] = np.where(roi_mask_dict[key] == 1)
+          self.roi_indices_dict[key] = np.where(roi_mask_dict[key].as_array() == 1)
 
         self.metrics_dict = metrics_dict
 
