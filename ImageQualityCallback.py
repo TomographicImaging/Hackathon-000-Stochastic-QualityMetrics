@@ -80,6 +80,9 @@ class ImageQualityCallback:
       before calculating all metrics and statistics.
       If you don't want any of the post-smoothed metrics, pass an empty list.
       Default []
+    
+    voxel_size_mm : tuple of floats
+      Gives the voxel size in mm (z, y, x).
 
 
     """
@@ -88,7 +91,8 @@ class ImageQualityCallback:
                        roi_mask_dict   = None,
                        metrics_dict    = None,
                        statistics_dict = None,
-                       post_smoothing_fwhms_mm_list = []):
+                       post_smoothing_fwhms_mm_list = [],
+                       voxel_size_mm = (1,1,1)):
     
         # the reference image
         self.reference_image = reference_image
@@ -112,9 +116,7 @@ class ImageQualityCallback:
         if 0 not in self.post_smoothing_fwhms_mm_list:
             self.post_smoothing_fwhms_mm_list.insert(0,0)
 
-        self.voxel_size_mm = (ref_image.geometry.voxel_size_z,
-                              ref_image.geometry.voxel_size_y,
-                              ref_image.geometry.voxel_size_x)
+        self.voxel_size_mm = voxel_size_mm
 
     def eval(self, iteration, last_cost , test_image):
         r""" Callback function called by CIL algorithm that calculates global and local
