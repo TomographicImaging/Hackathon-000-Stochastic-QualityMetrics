@@ -5,6 +5,7 @@
 
 import numpy as np
 import cil.framework
+import sirf.STIR as pet
 import tensorboardX
 from scipy.ndimage import gaussian_filter
 
@@ -91,8 +92,7 @@ class ImageQualityCallback:
                        roi_mask_dict   = None,
                        metrics_dict    = None,
                        statistics_dict = None,
-                       post_smoothing_fwhms_mm_list = [],
-                       voxel_size_mm = (1,1,1)):
+                       post_smoothing_fwhms_mm_list = []):
     
         # the reference image
         self.reference_image = reference_image
@@ -116,8 +116,15 @@ class ImageQualityCallback:
         if 0 not in self.post_smoothing_fwhms_mm_list:
             self.post_smoothing_fwhms_mm_list.insert(0,0)
 
-        self.voxel_size_mm = voxel_size_mm
-
+        if isinstance(ref_image,cil.framework.ImageData):
+            self.voxel_size_mm = (ref_image.geometry.voxel_size_z,
+                                ref_image.geometry.voxel_size_y,
+                                ref_image.geometry.voxel_size_x)
+        elif isinstance(ref_image,pet.ImageData):
+            self.voxel_size_mm = ref_image.voxel_sizes()
+        else:
+            NotImplementedError
+            
     def eval(self, iteration, last_cost , test_image):
         r""" Callback function called by CIL algorithm that calculates global and local
              metrics and measures.
@@ -220,13 +227,10 @@ class ImageQualityCallback:
 
 
 if __name__ == '__main__':
-
     # seed the random generator to setup random test image
     np.random.seed(1)
-
     # image dimension / shape of test images
     image_shape = (30,40,50)
-
     # setup standard image geometry
     image_geom = cil.framework.ImageGeometry(voxel_num_x  = image_shape[2], 
                                              voxel_num_y  = image_shape[1],
@@ -234,30 +238,21 @@ if __name__ == '__main__':
                                              voxel_size_x = 2.78,
                                              voxel_size_y = 2.98,
                                              voxel_size_z = 3.12)
-
-
     # setup a test and reference image
     test_image = cil.framework.ImageData(array = np.random.rand(*image_shape), geometry = image_geom)
-    ref_image  = cil.framework.ImageData(array = np.random.rand(*image_shape), geometry = image_geom)
-
-
+    ref_image  = cil.framework.ImageData(array = np.random.rand(*image_shape), geometry = image_geom) 
     # setup a 2 binary ROI images
     roi_image_dict = {}
-
     mask_1 = np.zeros(image_shape)
     mask_1[1:,:-1,0] = 1
     roi_image_dict['roi_1'] = cil.framework.ImageData(array = mask_1, geometry = image_geom)
-
     mask_2 = np.zeros(image_shape)
     mask_2[0,:-1,1:] = 1
     roi_image_dict['roi_2'] = cil.framework.ImageData(array = mask_2, geometry = image_geom)
-
-
     # create a tensorboardX summary writer
     from datetime import datetime
     dt_string = datetime.now().strftime("%Y%m%d-%H%M%S")
     tb_summary_writer = tensorboardX.SummaryWriter(f'runs/exp-{dt_string}')
-
     # instanciate ImageQualityCallback
     img_qual_callback = ImageQualityCallback(ref_image, tb_summary_writer,
                                              roi_mask_dict = roi_image_dict,
@@ -267,10 +262,32 @@ if __name__ == '__main__':
                                                                 'MAX': (lambda x: x.max()),
                                                                 'COM': (lambda x: np.array([3,2,1]))},
                                              post_smoothing_fwhms_mm_list = [5., 8.])
-
     img_qual_callback.eval(1, 1, test_image)
     img_qual_callback.eval(2, 1, test_image*1.1)
     img_qual_callback.eval(3, 1, test_image*0.9)
     img_qual_callback.eval(4, 1, test_image*1.2)
+    tb_summary_writer.close()
 
+    ################################################################################################
+
+    from sirf.Utilities import examples_data_path
+    test_image = pet.ImageData(examples_data_path('PET')+'/thorax_single_slice/emission.hv')
+    ref_image = pet.ImageData(examples_data_path('PET')+'/thorax_single_slice/emission.hv')
+    roi_image_dict = {}
+    # create a tensorboardX summary writer
+    from datetime import datetime
+    dt_string = datetime.now().strftime("%Y%m%d-%H%M%S")
+    tb_summary_writer = tensorboardX.SummaryWriter(f'runs/exp-{dt_string}')
+    # instanciate ImageQualityCallback
+    img_qual_callback = ImageQualityCallback(ref_image, tb_summary_writer,
+                                             roi_mask_dict = roi_image_dict,
+                                             metrics_dict = {'MSE':MSE, 'MAE':MAE, 'PSNR':PSNR},
+                                             statistics_dict = {'MEAN': (lambda x: x.mean()),
+                                                                'STDDEV': (lambda x: x.std()),
+                                                                'MAX': (lambda x: x.max()),
+                                                                'COM': (lambda x: np.array([3,2,1]))},
+                                             post_smoothing_fwhms_mm_list = [5., 8.])
+    img_qual_callback.eval(2, 1, test_image*1.1)
+    img_qual_callback.eval(3, 1, test_image*0.9)
+    img_qual_callback.eval(4, 1, test_image*1.2)
     tb_summary_writer.close()
