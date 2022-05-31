@@ -1,6 +1,4 @@
 import numpy as np
-import cil.framework
-import sirf.STIR as pet
 from scipy.ndimage import gaussian_filter
 
 def MSE(x,y):
@@ -33,7 +31,7 @@ class ImageQualityCallback:
     Parameters
     ----------
 
-    reference_image: CIL or SIRF ImageData
+    reference_image: CIL or STIR ImageData
       containing the reference image used to calculate the metrics
 
     tb_summary_writer ; tensorboardX SummaryWriter
@@ -110,12 +108,20 @@ class ImageQualityCallback:
         if 0 not in self.post_smoothing_fwhms_mm_list:
             self.post_smoothing_fwhms_mm_list.insert(0,0)
 
-        if isinstance(reference_image,cil.framework.ImageData):
-            self.voxel_size_mm = (reference_image.geometry.voxel_size_z,
-                                reference_image.geometry.voxel_size_y,
-                                reference_image.geometry.voxel_size_x)
-        elif isinstance(reference_image,pet.ImageData):
+        # get the voxel sizes from the input reference image
+        # since STIR and CIL use different way to store the voxel sizes
+        # we test for the attributes voxel_siszes (STIR) and geometry.voxel_size_x (CIL
+        if hasattr(reference_image, 'voxel_sizes'):
+            # STIR image
             self.voxel_size_mm = reference_image.voxel_sizes()
+        elif hasattr(reference_image, 'geometry'):
+            if hasattr(reference_image.geometry, 'voxel_size_x'):
+                # CIL image
+                self.voxel_size_mm = (reference_image.geometry.voxel_size_z,
+                                      reference_image.geometry.voxel_size_y,
+                                      reference_image.geometry.voxel_size_x)
+            else:
+                NotImplementedError
         else:
             NotImplementedError
             
