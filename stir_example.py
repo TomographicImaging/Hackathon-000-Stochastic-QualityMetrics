@@ -4,6 +4,34 @@ import tensorboardX
 from sirf.Utilities import examples_data_path
 from datetime import datetime
 
+from ImageQualityCallback import ImageQualityCallback
+
+def MSE(x,y):
+    """ mean squared error between two numpy arrays
+    """
+    return ((x-y)**2).mean()
+
+def MAE(x,y):
+    """ mean absolute error between two numpy arrays
+    """
+    return np.abs(x-y).mean()
+
+def PSNR(x, y, scale = None):
+    """ peak signal to noise ratio between two numpy arrays x and y
+        y is considered to be the reference array and the default scale
+        needed for the PSNR is assumed to be the max of this array
+    """
+  
+    mse = ((x-y)**2).mean()
+  
+    if scale == None:
+        scale = y.max()
+  
+    return 10*np.log10((scale**2) / mse)
+
+#---------------------------------------------------------------------------------------------
+
+
 test_image = pet.ImageData(examples_data_path('PET')+'/thorax_single_slice/emission.hv')
 ref_image = pet.ImageData(examples_data_path('PET')+'/thorax_single_slice/emission.hv')
 roi_image_dict = {}

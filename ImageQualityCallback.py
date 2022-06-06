@@ -1,30 +1,6 @@
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-def MSE(x,y):
-    """ mean squared error between two numpy arrays
-    """
-    return ((x-y)**2).mean()
-
-def MAE(x,y):
-    """ mean absolute error between two numpy arrays
-    """
-    return np.abs(x-y).mean()
-
-def PSNR(x, y, scale = None):
-    """ peak signal to noise ratio between two numpy arrays x and y
-        y is considered to be the reference array and the default scale
-        needed for the PSNR is assumed to be the max of this array
-    """
-  
-    mse = ((x-y)**2).mean()
-  
-    if scale == None:
-        scale = y.max()
-  
-    return 10*np.log10((scale**2) / mse)
-
-
 class ImageQualityCallback:
     r"""
 
