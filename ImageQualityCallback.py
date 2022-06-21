@@ -143,7 +143,6 @@ class ImageQualityCallback:
                 reference_image_array_ps = reference_image_array
 
             # (1) calculate global metrics and statistics
-            global_metrics    = {}
             if self.metrics_dict is not None:
                 for metric_name, metric in self.metrics_dict.items():
                     met = metric(test_image_array_ps.ravel(), reference_image_array_ps.ravel())
@@ -151,12 +150,10 @@ class ImageQualityCallback:
                     # for the 2nd case, we save each scalar value separately in the dict
                     if isinstance(met, np.ndarray):
                         for im, m in enumerate(met.ravel()):
-                            global_metrics[f'{metric_name}_{im}'] = m
+                            self.tb_summary_writer.add_scalar(f'Global_{metric_name}_{im}{ps_str}',  m, iteration)
                     else:
-                        global_metrics[metric_name] = met
-                self.tb_summary_writer.add_scalars(f'global_metrics{ps_str}', global_metrics, iteration)
+                        self.tb_summary_writer.add_scalar(f'Global_{metric_name}{ps_str}',  met, iteration)
 
-            global_statistics = {}
             if self.statistics_dict is not None:
                 for statistic_name, statistic in self.statistics_dict.items():
                     stat = statistic(test_image_array_ps.ravel())
@@ -164,16 +161,13 @@ class ImageQualityCallback:
                     # for the 2nd case, we save each scalar value separately in the dict
                     if isinstance(stat, np.ndarray):
                         for ist, st in enumerate(stat.ravel()):
-                            global_statistics[f'{statistic_name}_{ist}'] = st
+                            self.tb_summary_writer.add_scalar(f'Local_{statistic_name}_{ist}{ps_str}',  st, iteration)
                     else:
-                        global_statistics[statistic_name] = stat
-                self.tb_summary_writer.add_scalars(f'global_statistics{ps_str}', global_statistics, iteration)
+                        self.tb_summary_writer.add_scalar(f'Global_{statistic_name}{ps_str}',  stat, iteration)
   
             # (2) caluclate local metrics and statistics
             if self.roi_indices_dict is not None:
                 for roi_name, roi_inds in self.roi_indices_dict.items():
-                    roi_metrics    = {}
-                    roi_statistics = {}
 
                     if self.metrics_dict is not None:
                         for metric_name, metric in self.metrics_dict.items():
@@ -182,10 +176,9 @@ class ImageQualityCallback:
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(met, np.ndarray):
                                 for im, m in enumerate(roi_met.ravel()):
-                                    roi_metrics[f'{metric_name}_{im}'] = m
+                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}_{im}{ps_str}',  m, iteration)
                             else:
-                                roi_metrics[metric_name] = roi_met
-                        self.tb_summary_writer.add_scalars(f'{roi_name}_metrics{ps_str}', roi_metrics, iteration)
+                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}{ps_str}',  roi_met, iteration)
 
                     if self.statistics_dict is not None:
                         for statistic_name, statistic in self.statistics_dict.items():
@@ -194,7 +187,6 @@ class ImageQualityCallback:
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(roi_stat, np.ndarray):
                                 for ist, st in enumerate(roi_stat.ravel()):
-                                    roi_statistics[f'{statistic_name}_{ist}'] = st
+                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{im}{ps_str}',  st, iteration)
                             else:
-                                roi_statistics[statistic_name] = roi_stat
-                        self.tb_summary_writer.add_scalars(f'{roi_name}_statistics{ps_str}', roi_statistics, iteration)
+                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{ps_str}',  roi_stat, iteration)
