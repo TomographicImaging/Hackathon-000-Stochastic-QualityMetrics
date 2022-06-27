@@ -4,4 +4,7 @@ setup(
     name='StochasticHackathonQualityMetrics',
     version='0.1.0',
     packages=[''],
+    install_requires=['numpy',
+                      'scipy',
+                      'tensorboardX'],
 )

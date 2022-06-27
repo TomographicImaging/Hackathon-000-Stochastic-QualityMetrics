@@ -86,7 +86,7 @@ class ImageQualityCallback:
 
         # get the voxel sizes from the input reference image
         # since STIR and CIL use different way to store the voxel sizes
-        # we test for the attributes voxel_siszes (STIR) and geometry.voxel_size_x (CIL
+        # we test for the attributes voxel_sizes (STIR) and geometry.voxel_size_x (CIL
         if hasattr(reference_image, 'voxel_sizes'):
             # STIR image
             self.voxel_size_mm = reference_image.voxel_sizes()
