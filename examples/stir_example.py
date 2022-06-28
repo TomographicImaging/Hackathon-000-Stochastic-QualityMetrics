@@ -4,7 +4,7 @@ import tensorboardX
 from sirf.Utilities import examples_data_path
 from datetime import datetime
 
-from ImageQualityCallback import ImageQualityCallback
+import img_quality_cil_stir as imgq
 
 def MSE(x,y):
     """ mean squared error between two numpy arrays
@@ -40,10 +40,10 @@ roi_image_dict = {}
 dt_string = datetime.now().strftime("%Y%m%d-%H%M%S")
 tb_summary_writer = tensorboardX.SummaryWriter(f'runs/exp-{dt_string}')
 # instanciate ImageQualityCallback
-img_qual_callback = ImageQualityCallback(ref_image, tb_summary_writer,
-                                         roi_mask_dict = roi_image_dict,
-                                         metrics_dict = {'MSE':MSE, 'MAE':MAE, 'PSNR':PSNR},
-                                         statistics_dict = {'MEAN': (lambda x: x.mean()),
+img_qual_callback = imgq.ImageQualityCallback(ref_image, tb_summary_writer,
+                                              roi_mask_dict = roi_image_dict,
+                                              metrics_dict = {'MSE':MSE, 'MAE':MAE, 'PSNR':PSNR},
+                                              statistics_dict = {'MEAN': (lambda x: x.mean()),
                                                             'STDDEV': (lambda x: x.std()),
                                                             'MAX': (lambda x: x.max()),
                                                             'COM': (lambda x: np.array([3,2,1]))},
