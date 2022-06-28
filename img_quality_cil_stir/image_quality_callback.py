@@ -187,6 +187,6 @@ class ImageQualityCallback:
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(roi_stat, np.ndarray):
                                 for ist, st in enumerate(roi_stat.ravel()):
-                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{im}{ps_str}',  st, iteration)
+                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{st}{ps_str}',  st, iteration)
                             else:
                                 self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{ps_str}',  roi_stat, iteration)
