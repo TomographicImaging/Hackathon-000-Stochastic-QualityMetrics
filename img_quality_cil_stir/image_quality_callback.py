@@ -1,7 +1,8 @@
+from cil.optimisation.utilities.callbacks import Callback
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
-class ImageQualityCallback:
+class ImageQualityCallback(Callback):
     r"""
 
     Parameters
@@ -101,7 +102,13 @@ class ImageQualityCallback:
         else:
             NotImplementedError
             
-    def eval(self, iteration, last_cost , test_image):
+    def __call__(self, algorithm):
+        iteration = algorithm.iteration
+        last_cost = algorithm.get_last_objective(return_all=False)
+        # evaluate the test image
+        self.eval(iteration, last_cost, algorithm.x)
+        
+    def eval(self, iteration, last_cost, test_image):
         r""" Callback function called by CIL algorithm that calculates global and local
              metrics and measures.
              The input arguments are fixed by the callback from the CIL algorithm class.
