@@ -94,9 +94,18 @@ class ImageQualityCallback(Callback):
         elif hasattr(reference_image, 'geometry'):
             if hasattr(reference_image.geometry, 'voxel_size_x'):
                 # CIL image
-                self.voxel_size_mm = (reference_image.geometry.voxel_size_z,
-                                      reference_image.geometry.voxel_size_y,
-                                      reference_image.geometry.voxel_size_x)
+                if reference_image.ndim == 3:
+                    self.voxel_size_mm = (reference_image.geometry.voxel_size_z,
+                                        reference_image.geometry.voxel_size_y,
+                                        reference_image.geometry.voxel_size_x)
+                elif reference_image.ndim == 2:
+                    self.voxel_size_mm = (reference_image.geometry.voxel_size_y,
+                                        reference_image.geometry.voxel_size_x)
+                else:
+                    raise ValueError(
+                        f'This {self.__class__.__name__} handles only 2D or 3D images, got a {reference_image.ndim}D image.'
+                        )
+
             else:
                 NotImplementedError
         else:
