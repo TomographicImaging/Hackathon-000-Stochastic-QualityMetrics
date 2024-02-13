@@ -2,6 +2,38 @@ from cil.optimisation.utilities.callbacks import Callback
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+class GaussianFilter():
+    '''Gaussian filter to be applied to the input image array
+    
+    Parameters
+    ----------
+    post_smoothing_fwhm_mm : float
+      full width at half maximum of the Gaussian filter in mm
+    voxel_size_mm : tuple of floats
+      Gives the voxel size in mm. Currently only homogeneous voxel sizes are supported.'''
+    
+    def __init__(self, post_smoothing_fwhm_mm: float, voxel_size_mm: float):
+        self.post_smoothing_fwhm_mm = post_smoothing_fwhm_mm
+        if post_smoothing_fwhm_mm < 0:
+            raise ValueError('post_smoothing_fwhm_mm must be a positive number')
+        self.voxel_size_mm = voxel_size_mm
+
+    def __call__(self, image_array):
+        '''Apply Gaussian filter to the input image array
+        
+        Parameters
+        ----------
+        image_array : numpy.ndarray
+          input image array
+          
+        Returns
+        -------
+        numpy.ndarray of the same shape as the input image array
+        '''
+        sig = self.post_smoothing_fwhm_mm / (2.35*np.array(self.voxel_size_mm))
+        return gaussian_filter(image_array, sig)
+        
+
 class ImageQualityCallback(Callback):
     r"""
 
@@ -45,11 +77,12 @@ class ImageQualityCallback(Callback):
       as separate scalar values in the tensorboard results
       (one for each value in the array)
 
-    post_smoothing_fwhms_mm_list : list of floats
-      Containing FWHMs (mm) of Gaussian post smoothing kernels to be applied
-      before calculating all metrics and statistics.
-      If you don't want any of the post-smoothed metrics, pass an empty list.
-      Default []
+    filter : dict of filters
+      Filter to be applied before calculating all metrics and statistics.
+      The key of the dict is the name of the filter which will be used to identify
+      the results in the tensorboard event files.
+      If you don't want any of the post-smoothed metrics, pass an empty dict.
+      Default {}
     
     voxel_size_mm : tuple of floats
       Gives the voxel size in mm (z, y, x).
@@ -61,7 +94,8 @@ class ImageQualityCallback(Callback):
                        roi_mask_dict   = None,
                        metrics_dict    = None,
                        statistics_dict = None,
-                       post_smoothing_fwhms_mm_list = []):
+                       filter={}):
+        
     
         # the reference image
         self.reference_image = reference_image
@@ -81,10 +115,7 @@ class ImageQualityCallback(Callback):
 
         self.statistics_dict = statistics_dict
 
-        self.post_smoothing_fwhms_mm_list = post_smoothing_fwhms_mm_list
-        if 0 not in self.post_smoothing_fwhms_mm_list:
-            self.post_smoothing_fwhms_mm_list.insert(0,0)
-
+        self.filter = filter
         # get the voxel sizes from the input reference image
         # since STIR and CIL use different way to store the voxel sizes
         # we test for the attributes voxel_sizes (STIR) and geometry.voxel_size_x (CIL
@@ -143,20 +174,20 @@ class ImageQualityCallback(Callback):
         test_image_array      = test_image.as_array()
         reference_image_array = self.reference_image.as_array()
 
-        for post_smoothing_fwhm_mm in self.post_smoothing_fwhms_mm_list:
-            if post_smoothing_fwhm_mm > 0:
-                ps_str = f'_{post_smoothing_fwhm_mm}mm_smoothed'
-            else:
-                ps_str = ''
+        # for post_smoothing_fwhm_mm in self.post_smoothing_fwhms_mm_list:
+        if self.filter == {}:
+            filters = {'':None}
+        else:
+            filters = self.filter
+        for filter_name, filter in filters.items():
+            ps_str = f'{filter_name}'
 
-
-            if post_smoothing_fwhm_mm > 0:
-                sig = post_smoothing_fwhm_mm / (2.35*np.array(self.voxel_size_mm))
-                test_image_array_ps      = gaussian_filter(test_image_array, sig)
-                reference_image_array_ps = gaussian_filter(reference_image_array, sig)
-            else:
+            if filter is None:
                 test_image_array_ps      = test_image_array
                 reference_image_array_ps = reference_image_array
+            else:
+                test_image_array_ps      = filter(test_image_array)
+                reference_image_array_ps = filter(reference_image_array)
 
             # (1) calculate global metrics and statistics
             if self.metrics_dict is not None:
@@ -206,3 +237,6 @@ class ImageQualityCallback(Callback):
                                     self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{st}{ps_str}',  st, iteration)
                             else:
                                 self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{ps_str}',  roi_stat, iteration)
+    
+    def set_filters(self, filters):
+        self.filter = filters
