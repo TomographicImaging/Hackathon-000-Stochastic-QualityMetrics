@@ -146,9 +146,7 @@ class ImageQualityCallback(Callback):
         iteration = algorithm.iteration
         last_cost = algorithm.get_last_objective(return_all=False)
         # evaluate the test image
-        self.eval(iteration, last_cost, algorithm.x)
-        
-    def eval(self, iteration, last_cost, test_image):
+        test_image = algorithm.x
         r""" Callback function called by CIL algorithm that calculates global and local
              metrics and measures.
              The input arguments are fixed by the callback from the CIL algorithm class.
