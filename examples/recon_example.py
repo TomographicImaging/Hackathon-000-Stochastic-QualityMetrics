@@ -74,7 +74,6 @@ roi_image_dict = {
     'bottom' : bottom
 }
 
-from cil.utilities.quality_measures import mae, mse, psnr
 
 def MSE(x, y):
     """mean squared error between two arrays"""
