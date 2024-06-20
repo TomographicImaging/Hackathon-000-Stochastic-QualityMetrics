@@ -76,10 +76,13 @@ roi_image_dict = {
 
 from cil.utilities.quality_measures import mae, mse, psnr
 
-def MSE(x,y):
-    """ mean squared error between two numpy arrays
-    """
+def MSE(x, y):
+    """mean squared error between two arrays"""
     return ((x-y)**2).mean()
+
+def NRMSE(x, y):
+    """normalised mean squared error between two arrays"""
+    return (((x-y)**2).mean() / (y**2).mean())**0.5
 
 def MAE(x,y):
     """ mean absolute error between two numpy arrays
@@ -102,16 +105,13 @@ def PSNR(x, y, scale = None):
 
 # instantiate ImageQualityCallback
 img_qual_callback = imgq.ImageQualityCallback(ground_truth, tb_summary_writer,
-                                              roi_mask_dict = roi_image_dict,
-                                              metrics_dict = {'MSE':MSE, 
-                                                              'MAE':MAE, 
-                                                              'PSNR':PSNR},
-                                              statistics_dict = {'MEAN': (lambda x: x.mean()),
-                                                                 'STDDEV': (lambda x: x.std()),
-                                                                 'MAX': (lambda x: x.max()),
-                                                                 'COM': (lambda x: np.array([3,2,1]))},
-                                            #   post_smoothing_fwhms_mm_list = [5., 8.]
-                                              )
+    roi_mask_dict=roi_image_dict,
+    metrics_dict={'NRMSE': NRMSE, 'MSE': MSE, 'MAE': MAE, 'PSNR': PSNR},
+    statistics_dict={
+        'MEAN': (lambda x: x.mean()), 'STDDEV': (lambda x: x.std()),
+        'MAX': (lambda x: x.max()), 'COM': (lambda x: np.array([3,2,1]))},
+    # post_smoothing_fwhms_mm_list = [5., 8.]
+)
 
 
 #%%
