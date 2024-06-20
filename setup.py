@@ -26,4 +26,5 @@ setuptools.setup(
                       'pandas >= 1.0',
                       'tensorboard >= 2.0',
                       'tensorboardx >= 2.0'],
+    packages=['img_quality_cil_stir'],
 )
