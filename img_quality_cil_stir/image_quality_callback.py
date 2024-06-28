@@ -190,7 +190,7 @@ class ImageQualityCallback(Callback):
             # (1) calculate global metrics and statistics
             if self.metrics_dict is not None:
                 for metric_name, metric in self.metrics_dict.items():
-                    met = metric(test_image_array_ps.ravel(), reference_image_array_ps.ravel())
+                    met = metric(reference_image_array_ps.ravel(), test_image_array_ps.ravel())
                     # check if metric is scalar or vector valued
                     # for the 2nd case, we save each scalar value separately in the dict
                     if isinstance(met, np.ndarray):
@@ -216,7 +216,7 @@ class ImageQualityCallback(Callback):
 
                     if self.metrics_dict is not None:
                         for metric_name, metric in self.metrics_dict.items():
-                            roi_met = metric(test_image_array_ps[roi_inds], reference_image_array_ps[roi_inds])
+                            roi_met = metric(reference_image_array_ps[roi_inds], test_image_array_ps[roi_inds])
                             # check if metric is scalar or vector valued
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(met, np.ndarray):
