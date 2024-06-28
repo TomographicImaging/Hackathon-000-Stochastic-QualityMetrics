@@ -144,6 +144,8 @@ class ImageQualityCallback(Callback):
             
     def __call__(self, algorithm):
         iteration = algorithm.iteration
+        if iteration % algorithm.update_objective_interval != 0 and iteration != algorithm.max_iteration:
+            return
         last_cost = algorithm.get_last_objective(return_all=False)
         # evaluate the test image
         test_image = algorithm.x
