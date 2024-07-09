@@ -160,7 +160,7 @@ class ImageQualityCallback(Callback):
                 # for the 2nd case, we save each scalar value separately in the dict
                 if isinstance(stat, np.ndarray):
                     for ist, st in enumerate(stat.ravel()):
-                        self.tb_summary_writer.add_scalar(f'Local_{statistic_name}_{ist}{filter_name}', st, iteration)
+                        self.tb_summary_writer.add_scalar(f'Global_{statistic_name}_{ist}{filter_name}', st, iteration)
                 else:
                     self.tb_summary_writer.add_scalar(f'Global_{statistic_name}{filter_name}', stat, iteration)
 
@@ -170,7 +170,7 @@ class ImageQualityCallback(Callback):
                     roi_met = metric(reference_image_array_ps[roi_inds], test_image_array_ps[roi_inds])
                     # check if metric is scalar or vector valued
                     # for the 2nd case, we save each scalar value separately in the dict
-                    if isinstance(met, np.ndarray):
+                    if isinstance(roi_met, np.ndarray):
                         for im, m in enumerate(roi_met.ravel()):
                             self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}_{im}{filter_name}', m,
                                                               iteration)
