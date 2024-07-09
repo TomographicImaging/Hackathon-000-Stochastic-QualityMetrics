@@ -1,17 +1,18 @@
-from cil.optimisation.utilities.callbacks import Callback
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
+from cil.optimisation.utilities.callbacks import Callback
+
+
 class GaussianFilter():
     '''Gaussian filter to be applied to the input image array
-    
+
     Parameters
     ----------
     post_smoothing_fwhm_mm : float
       full width at half maximum of the Gaussian filter in mm
     voxel_size_mm : tuple of floats
       Gives the voxel size in mm. Currently only homogeneous voxel sizes are supported.'''
-    
     def __init__(self, post_smoothing_fwhm_mm: float, voxel_size_mm: float):
         self.post_smoothing_fwhm_mm = post_smoothing_fwhm_mm
         if post_smoothing_fwhm_mm < 0:
@@ -20,23 +21,22 @@ class GaussianFilter():
 
     def __call__(self, image_array):
         '''Apply Gaussian filter to the input image array
-        
+
         Parameters
         ----------
         image_array : numpy.ndarray
           input image array
-          
+
         Returns
         -------
         numpy.ndarray of the same shape as the input image array
         '''
-        sig = self.post_smoothing_fwhm_mm / (2.35*np.array(self.voxel_size_mm))
+        sig = self.post_smoothing_fwhm_mm / (2.35 * np.array(self.voxel_size_mm))
         return gaussian_filter(image_array, sig)
-        
+
 
 class ImageQualityCallback(Callback):
     r"""
-
     Parameters
     ----------
 
@@ -52,7 +52,7 @@ class ImageQualityCallback(Callback):
       and voxels with value 0 are not.
       Dimension of the ROI mask images must be the same as the dimension of
       the reference image.
-      
+
     metrics_dict : dictionary of lambda functions f(x,y) mapping
       two 1-dimensional numpy arrays x and y to a scalar value or a
       numpy.ndarray.
@@ -66,7 +66,7 @@ class ImageQualityCallback(Callback):
       as separate scalar values in the tensorboard results
       (one for each value in the array)
 
-    statistics_dict : dictionary of lambda functions f(x) mapping a 
+    statistics_dict : dictionary of lambda functions f(x) mapping a
       1-dimensional numpy array x to a scalar value or a numpy.ndarray.
       E.g. mean(x), std_deviation(x) that calculate global and / or
       ROI mean and standard deviations.
@@ -83,20 +83,13 @@ class ImageQualityCallback(Callback):
       the results in the tensorboard event files.
       If you don't want any of the post-smoothed metrics, pass an empty dict.
       Default {}
-    
+
     voxel_size_mm : tuple of floats
       Gives the voxel size in mm (z, y, x).
-
-
     """
-    def __init__(self, reference_image, 
-                       tb_summary_writer, 
-                       roi_mask_dict   = None,
-                       metrics_dict    = None,
-                       statistics_dict = None,
-                       filter={}):
-        
-    
+    def __init__(self, reference_image, tb_summary_writer, roi_mask_dict=None, metrics_dict=None, statistics_dict=None,
+                 filter={}):
+
         # the reference image
         self.reference_image = reference_image
 
@@ -126,22 +119,20 @@ class ImageQualityCallback(Callback):
             if hasattr(reference_image.geometry, 'voxel_size_x'):
                 # CIL image
                 if reference_image.ndim == 3:
-                    self.voxel_size_mm = (reference_image.geometry.voxel_size_z,
-                                        reference_image.geometry.voxel_size_y,
-                                        reference_image.geometry.voxel_size_x)
+                    self.voxel_size_mm = (reference_image.geometry.voxel_size_z, reference_image.geometry.voxel_size_y,
+                                          reference_image.geometry.voxel_size_x)
                 elif reference_image.ndim == 2:
-                    self.voxel_size_mm = (reference_image.geometry.voxel_size_y,
-                                        reference_image.geometry.voxel_size_x)
+                    self.voxel_size_mm = (reference_image.geometry.voxel_size_y, reference_image.geometry.voxel_size_x)
                 else:
                     raise ValueError(
                         f'This {self.__class__.__name__} handles only 2D or 3D images, got a {reference_image.ndim}D image.'
-                        )
+                    )
 
             else:
                 NotImplementedError
         else:
             NotImplementedError
-            
+
     def __call__(self, algorithm):
         iteration = algorithm.iteration
         if iteration % algorithm.update_objective_interval != 0 and iteration != algorithm.max_iteration:
@@ -166,27 +157,27 @@ class ImageQualityCallback(Callback):
           test image where metrics and measure should be computed on
 
         """
-       
+
         # (0) log the value of the cost function
         self.tb_summary_writer.add_scalar('cost', last_cost, iteration)
 
         # get numpy arrays behind test ImageData
-        test_image_array      = test_image.as_array()
+        test_image_array = test_image.as_array()
         reference_image_array = self.reference_image.as_array()
 
         # for post_smoothing_fwhm_mm in self.post_smoothing_fwhms_mm_list:
         if self.filter == {}:
-            filters = {'':None}
+            filters = {'': None}
         else:
             filters = self.filter
         for filter_name, filter in filters.items():
             ps_str = f'{filter_name}'
 
             if filter is None:
-                test_image_array_ps      = test_image_array
+                test_image_array_ps = test_image_array
                 reference_image_array_ps = reference_image_array
             else:
-                test_image_array_ps      = filter(test_image_array)
+                test_image_array_ps = filter(test_image_array)
                 reference_image_array_ps = filter(reference_image_array)
 
             # (1) calculate global metrics and statistics
@@ -197,9 +188,9 @@ class ImageQualityCallback(Callback):
                     # for the 2nd case, we save each scalar value separately in the dict
                     if isinstance(met, np.ndarray):
                         for im, m in enumerate(met.ravel()):
-                            self.tb_summary_writer.add_scalar(f'Global_{metric_name}_{im}{ps_str}',  m, iteration)
+                            self.tb_summary_writer.add_scalar(f'Global_{metric_name}_{im}{ps_str}', m, iteration)
                     else:
-                        self.tb_summary_writer.add_scalar(f'Global_{metric_name}{ps_str}',  met, iteration)
+                        self.tb_summary_writer.add_scalar(f'Global_{metric_name}{ps_str}', met, iteration)
 
             if self.statistics_dict is not None:
                 for statistic_name, statistic in self.statistics_dict.items():
@@ -208,10 +199,10 @@ class ImageQualityCallback(Callback):
                     # for the 2nd case, we save each scalar value separately in the dict
                     if isinstance(stat, np.ndarray):
                         for ist, st in enumerate(stat.ravel()):
-                            self.tb_summary_writer.add_scalar(f'Local_{statistic_name}_{ist}{ps_str}',  st, iteration)
+                            self.tb_summary_writer.add_scalar(f'Local_{statistic_name}_{ist}{ps_str}', st, iteration)
                     else:
-                        self.tb_summary_writer.add_scalar(f'Global_{statistic_name}{ps_str}',  stat, iteration)
-  
+                        self.tb_summary_writer.add_scalar(f'Global_{statistic_name}{ps_str}', stat, iteration)
+
             # (2) caluclate local metrics and statistics
             if self.roi_indices_dict is not None:
                 for roi_name, roi_inds in self.roi_indices_dict.items():
@@ -223,9 +214,11 @@ class ImageQualityCallback(Callback):
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(met, np.ndarray):
                                 for im, m in enumerate(roi_met.ravel()):
-                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}_{im}{ps_str}',  m, iteration)
+                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}_{im}{ps_str}', m,
+                                                                      iteration)
                             else:
-                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}{ps_str}',  roi_met, iteration)
+                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}{ps_str}', roi_met,
+                                                                  iteration)
 
                     if self.statistics_dict is not None:
                         for statistic_name, statistic in self.statistics_dict.items():
@@ -234,9 +227,11 @@ class ImageQualityCallback(Callback):
                             # for the 2nd case, we save each scalar value separately in the dict
                             if isinstance(roi_stat, np.ndarray):
                                 for ist, st in enumerate(roi_stat.ravel()):
-                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{st}{ps_str}',  st, iteration)
+                                    self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{st}{ps_str}',
+                                                                      st, iteration)
                             else:
-                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{ps_str}',  roi_stat, iteration)
-    
+                                self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{ps_str}',
+                                                                  roi_stat, iteration)
+
     def set_filters(self, filters):
         self.filter = filters
