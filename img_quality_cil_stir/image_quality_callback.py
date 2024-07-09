@@ -1,7 +1,10 @@
+from collections.abc import Callable
 from numbers import Number
+from typing import Any
 
 import numpy as np
 from scipy.ndimage import gaussian_filter
+from tensorboardX import SummaryWriter
 
 from cil.optimisation.utilities.callbacks import Callback
 
@@ -43,27 +46,31 @@ class ImageQualityCallback(Callback):
     For use by `cil.optimisation.algorithms.Algorithm.run(callbacks=...)`
     to calculate global & local metrics.
     """
-    def __init__(self, reference_image, tb_summary_writer, roi_mask_dict=None, metrics_dict=None, statistics_dict=None,
-                 filter=None):
+    def __init__(self, reference_image, tb_summary_writer: SummaryWriter | str = None,
+                 roi_mask_dict: dict[str, Any] | None = None, metrics_dict: dict[str, Callable] | None = None,
+                 statistics_dict: dict[str, Callable] | None = None, filter: dict[str, Callable] | None = None):
         """
         Parameters
         ----------
         reference_image : CIL or STIR ImageData
-          containing the reference image used to calculate the metrics
-        tb_summary_writer : tensorboardX SummaryWriter
-          summary writer used to log results to tensorboard event files
+        tb_summary_writer :
+          Writer (or logdir) to save tensorboard event files
         roi_mask_dict : dict[str, ImageData]
           One binary ImageData object (of same dimensions as the reference image)
           for every ROI to be evaluated. Voxels with values == 1 are considered part of the ROI.
-        metrics_dict : dict[str, Callable] of named functions `f(y: 1darray, x: 1darray) -> scalar | ndarray`
+        metrics_dict :
+          Named functions `f(y: 1darray, x: 1darray) -> scalar | ndarray`
           e.g. `{"MSE": skimage.metrics.mean_squared_error}`.
-        statistics_dict : dict[str, Callable] of named functions `f(x: 1darray) -> scalar | ndarray`
+        statistics_dict :
+          Named functions `f(x: 1darray) -> scalar | ndarray`
           e.g. `{"mean": np.mean, "std": np.stdev}`.
-        filter : dict[str, Callable] of named filters `f(x: ndarray) -> ndarray`
+        filter :
+          Named filters `f(x: ndarray) -> ndarray`
           Filter to be applied before calculating all metrics and statistics.
         """
         self.reference_image = reference_image
-        self.tb_summary_writer = tb_summary_writer
+        self.tb_summary_writer = tb_summary_writer if isinstance(tb_summary_writer, SummaryWriter) else SummaryWriter(
+            logdir=tb_summary_writer)
         self.roi_indices = {}
         for key, value in (roi_mask_dict or {}).items():
             self.roi_indices[key] = np.where(value.as_array() == 1)
