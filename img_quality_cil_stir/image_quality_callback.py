@@ -1,3 +1,5 @@
+from numbers import Number
+
 import numpy as np
 from scipy.ndimage import gaussian_filter
 
@@ -40,52 +42,26 @@ class ImageQualityCallback(Callback):
     """
     For use by `cil.optimisation.algorithms.Algorithm.run(callbacks=...)`
     to calculate global & local metrics.
-
-    Parameters
-    ----------
-    reference_image : CIL or STIR ImageData
-      containing the reference image used to calculate the metrics
-    tb_summary_writer : tensorboardX SummaryWriter
-      summary writer used to log results to tensorboard event files
-    roi_mask : dictionary of ImageData objects
-      list containing one binary ImageData object for every ROI to be
-      evaluated. Voxels with values 1 are considered part of the ROI
-      and voxels with value 0 are not.
-      Dimension of the ROI mask images must be the same as the dimension of
-      the reference image.
-    metrics : dictionary of lambda functions f(x,y) mapping
-      two 1-dimensional numpy arrays x and y to a scalar value or a
-      numpy.ndarray.
-      x and y can be the voxel values of the whole images or the values of
-      voxels in a ROI such that the metric can be computed on the whole
-      images and optionally in the ROIs separately.
-
-      E.g. f(x,y) could be MSE(x,y), PSNR(x,y), MAE(x,y)
-
-      If the return value is an nd.array, the results will be saved
-      as separate scalar values in the tensorboard results
-      (one for each value in the array)
-    statistics : dictionary of lambda functions f(x) mapping a
-      1-dimensional numpy array x to a scalar value or a numpy.ndarray.
-      E.g. mean(x), std_deviation(x) that calculate global and / or
-      ROI mean and standard deviations.
-
-      E.g. f(x) could be x.mean()
-
-      If the return value is an nd.array, the results will be saved
-      as separate scalar values in the tensorboard results
-      (one for each value in the array)
-    filter : dict of filters
-      Filter to be applied before calculating all metrics and statistics.
-      The key of the dict is the name of the filter which will be used to identify
-      the results in the tensorboard event files.
-      If you don't want any of the post-smoothed metrics, pass an empty dict.
-      Default {}
-    voxel_size_mm : tuple of floats
-      Gives the voxel size in mm (z, y, x).
     """
     def __init__(self, reference_image, tb_summary_writer, roi_mask_dict=None, metrics_dict=None, statistics_dict=None,
                  filter=None):
+        """
+        Parameters
+        ----------
+        reference_image : CIL or STIR ImageData
+          containing the reference image used to calculate the metrics
+        tb_summary_writer : tensorboardX SummaryWriter
+          summary writer used to log results to tensorboard event files
+        roi_mask_dict : dict[str, ImageData]
+          One binary ImageData object (of same dimensions as the reference image)
+          for every ROI to be evaluated. Voxels with values == 1 are considered part of the ROI.
+        metrics_dict : dict[str, Callable] of named functions `f(y: 1darray, x: 1darray) -> scalar | ndarray`
+          e.g. `{"MSE": skimage.metrics.mean_squared_error}`.
+        statistics_dict : dict[str, Callable] of named functions `f(x: 1darray) -> scalar | ndarray`
+          e.g. `{"mean": np.mean, "std": np.stdev}`.
+        filter : dict[str, Callable] of named filters `f(x: ndarray) -> ndarray`
+          Filter to be applied before calculating all metrics and statistics.
+        """
         self.reference_image = reference_image
         self.tb_summary_writer = tb_summary_writer
         self.roi_indices = {}
@@ -140,31 +116,26 @@ class ImageQualityCallback(Callback):
                 test_im, ref_im = map(filter_func, (test_im_arr, ref_im_arr))
 
             # (1) global metrics & statistics
-            self._log_metrics_stats(ref_im.ravel(), test_im.ravel(), "Global_",
-                                    filter_name, iteration)
+            self._log_metrics_stats(ref_im.ravel(), test_im.ravel(), "Global_", filter_name, iteration)
 
             # (2) local metrics & statistics
             for roi_name, roi_inds in self.roi_indices.items():
-                self._log_metrics_stats(ref_im[roi_inds], test_im[roi_inds],
-                                        f"Local_{roi_name}_", filter_name, iteration)
+                self._log_metrics_stats(ref_im[roi_inds], test_im[roi_inds], f"Local_{roi_name}_", filter_name,
+                                        iteration)
 
     def _log_metrics_stats(self, ref_im, test_im, prefix, suffix, iteration):
         for metric_name, metric in self.metrics.items():
             met = metric(ref_im, test_im)
-            # check if metric is scalar or vector valued
-            # for the 2nd case, we save each scalar value separately in the dict
-            if isinstance(met, np.ndarray):
+            if isinstance(met, Number): # scalar
+                self.tb_summary_writer.add_scalar(f'{prefix}{metric_name}{suffix}', met, iteration)
+            else:                       # vector
                 for im, m in enumerate(met.ravel()):
                     self.tb_summary_writer.add_scalar(f'{prefix}{metric_name}_{im}{suffix}', m, iteration)
-            else:
-                self.tb_summary_writer.add_scalar(f'{prefix}{metric_name}{suffix}', met, iteration)
 
         for statistic_name, statistic in self.statistics.items():
             stat = statistic(test_im)
-            # check if statistic is scalar or vector valued
-            # for the 2nd case, we save each scalar value separately in the dict
-            if isinstance(stat, np.ndarray):
+            if isinstance(stat, Number): # scalar
+                self.tb_summary_writer.add_scalar(f'{prefix}{statistic_name}{suffix}', stat, iteration)
+            else:                        # vector
                 for ist, st in enumerate(stat.ravel()):
                     self.tb_summary_writer.add_scalar(f'{prefix}{statistic_name}_{ist}{suffix}', st, iteration)
-            else:
-                self.tb_summary_writer.add_scalar(f'{prefix}{statistic_name}{suffix}', stat, iteration)
