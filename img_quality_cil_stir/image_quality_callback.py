@@ -100,7 +100,7 @@ class ImageQualityCallback(Callback):
             self.roi_indices[key] = np.where(value.as_array() == 1)
         self.metrics = metrics_dict or {}
         self.statistics = statistics_dict or {}
-        self.set_filters(filter)
+        self.filter = filter
         # get the voxel sizes from the input reference image
         # i.e. `voxel_sizes` (STIR) or `geometry.voxel_size_*` (CIL)
         if hasattr(reference_image, 'voxel_sizes'):
@@ -120,6 +120,14 @@ class ImageQualityCallback(Callback):
                 raise NotImplementedError()
         else:
             raise NotImplementedError()
+
+    @property
+    def filter(self):
+        return self._filter
+
+    @filter.setter
+    def filter(self, filters):
+        self._filter = filters or {'': None}
 
     def __call__(self, algorithm):
         iteration = algorithm.iteration
@@ -170,6 +178,3 @@ class ImageQualityCallback(Callback):
             # (2) local metrics & statistics
             for roi_name, roi_inds in self.roi_indices.items():
                 log_metrics_stats(reference_image_array_ps[roi_inds], test_image_array_ps[roi_inds], f"Local_{roi_name}_")
-
-    def set_filters(self, filters):
-        self.filter = filters or {'': None}
