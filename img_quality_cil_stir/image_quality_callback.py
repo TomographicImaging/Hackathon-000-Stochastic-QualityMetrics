@@ -47,7 +47,7 @@ class ImageQualityCallback(Callback):
     to calculate global & local metrics.
     """
     def __init__(self, reference_image, tb_summary_writer: SummaryWriter | str = None,
-                 roi_mask_dict: dict[str, Any] | None = None, metrics_dict: dict[str, Callable] | None = None,
+                 voi_mask_dict: dict[str, Any] | None = None, metrics_dict: dict[str, Callable] | None = None,
                  statistics_dict: dict[str, Callable] | None = None, filter: dict[str, Callable] | None = None):
         """
         Parameters
@@ -55,9 +55,9 @@ class ImageQualityCallback(Callback):
         reference_image : CIL or STIR ImageData
         tb_summary_writer :
           Writer (or logdir) to save tensorboard event files
-        roi_mask_dict : dict[str, ImageData]
+        voi_mask_dict : dict[str, ImageData]
           One binary ImageData object (of same dimensions as the reference image)
-          for every ROI to be evaluated. Voxels with values == 1 are considered part of the ROI.
+          for every VOI to be evaluated. Voxels with truthy values are considered part of the VOI.
         metrics_dict :
           Named functions `f(y: 1darray, x: 1darray) -> scalar | ndarray`
           e.g. `{"MSE": skimage.metrics.mean_squared_error}`.
@@ -71,9 +71,9 @@ class ImageQualityCallback(Callback):
         self.reference_image = reference_image
         self.tb_summary_writer = tb_summary_writer if isinstance(tb_summary_writer, SummaryWriter) else SummaryWriter(
             logdir=tb_summary_writer)
-        self.roi_indices = {}
-        for key, value in (roi_mask_dict or {}).items():
-            self.roi_indices[key] = np.where(value.as_array() == 1)
+        self.voi_indices = {}
+        for key, value in (voi_mask_dict or {}).items():
+            self.voi_indices[key] = np.where(value.as_array())
         self.metrics = metrics_dict or {}
         self.statistics = statistics_dict or {}
         self.filter = filter
@@ -126,8 +126,8 @@ class ImageQualityCallback(Callback):
             self._log_metrics_stats(ref_im.ravel(), test_im.ravel(), "Global_", filter_name, iteration)
 
             # (2) local metrics & statistics
-            for roi_name, roi_inds in self.roi_indices.items():
-                self._log_metrics_stats(ref_im[roi_inds], test_im[roi_inds], f"Local_{roi_name}_", filter_name,
+            for voi_name, voi_inds in self.voi_indices.items():
+                self._log_metrics_stats(ref_im[voi_inds], test_im[voi_inds], f"Local_{voi_name}_", filter_name,
                                         iteration)
 
     def _log_metrics_stats(self, ref_im, test_im, prefix, suffix, iteration):
