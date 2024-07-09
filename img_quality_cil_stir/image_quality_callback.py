@@ -143,52 +143,33 @@ class ImageQualityCallback(Callback):
                 test_image_array_ps = filter_func(test_image_array)
                 reference_image_array_ps = filter_func(reference_image_array)
 
-            # (1) global metrics & statistics
-            for metric_name, metric in self.metrics.items():
-                met = metric(reference_image_array_ps.ravel(), test_image_array_ps.ravel())
-                # check if metric is scalar or vector valued
-                # for the 2nd case, we save each scalar value separately in the dict
-                if isinstance(met, np.ndarray):
-                    for im, m in enumerate(met.ravel()):
-                        self.tb_summary_writer.add_scalar(f'Global_{metric_name}_{im}{filter_name}', m, iteration)
-                else:
-                    self.tb_summary_writer.add_scalar(f'Global_{metric_name}{filter_name}', met, iteration)
+            def log_metrics_stats(ref_im, test_im, prefix="Global_"):
+                for metric_name, metric in self.metrics.items():
+                    met = metric(ref_im, test_im)
+                    # check if metric is scalar or vector valued
+                    # for the 2nd case, we save each scalar value separately in the dict
+                    if isinstance(met, np.ndarray):
+                        for im, m in enumerate(met.ravel()):
+                            self.tb_summary_writer.add_scalar(f'{prefix}{metric_name}_{im}{filter_name}', m, iteration)
+                    else:
+                        self.tb_summary_writer.add_scalar(f'{prefix}{metric_name}{filter_name}', met, iteration)
 
-            for statistic_name, statistic in self.statistics.items():
-                stat = statistic(test_image_array_ps.ravel())
-                # check if statistic is scalar or vector valued
-                # for the 2nd case, we save each scalar value separately in the dict
-                if isinstance(stat, np.ndarray):
-                    for ist, st in enumerate(stat.ravel()):
-                        self.tb_summary_writer.add_scalar(f'Global_{statistic_name}_{ist}{filter_name}', st, iteration)
-                else:
-                    self.tb_summary_writer.add_scalar(f'Global_{statistic_name}{filter_name}', stat, iteration)
+                for statistic_name, statistic in self.statistics.items():
+                    stat = statistic(test_im)
+                    # check if statistic is scalar or vector valued
+                    # for the 2nd case, we save each scalar value separately in the dict
+                    if isinstance(stat, np.ndarray):
+                        for ist, st in enumerate(stat.ravel()):
+                            self.tb_summary_writer.add_scalar(f'{prefix}{statistic_name}_{ist}{filter_name}', st, iteration)
+                    else:
+                        self.tb_summary_writer.add_scalar(f'{prefix}{statistic_name}{filter_name}', stat, iteration)
+
+            # (1) global metrics & statistics
+            log_metrics_stats(reference_image_array_ps.ravel(), test_image_array_ps.ravel(), "Global_")
 
             # (2) local metrics & statistics
             for roi_name, roi_inds in self.roi_indices.items():
-                for metric_name, metric in self.metrics.items():
-                    roi_met = metric(reference_image_array_ps[roi_inds], test_image_array_ps[roi_inds])
-                    # check if metric is scalar or vector valued
-                    # for the 2nd case, we save each scalar value separately in the dict
-                    if isinstance(roi_met, np.ndarray):
-                        for im, m in enumerate(roi_met.ravel()):
-                            self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}_{im}{filter_name}', m,
-                                                              iteration)
-                    else:
-                        self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{metric_name}{filter_name}', roi_met,
-                                                          iteration)
-
-                for statistic_name, statistic in self.statistics.items():
-                    roi_stat = statistic(test_image_array_ps[roi_inds])
-                    # check if statistic is scalar or vector valued
-                    # for the 2nd case, we save each scalar value separately in the dict
-                    if isinstance(roi_stat, np.ndarray):
-                        for ist, st in enumerate(roi_stat.ravel()):
-                            self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}_{st}{filter_name}',
-                                                              st, iteration)
-                    else:
-                        self.tb_summary_writer.add_scalar(f'Local_{roi_name}_{statistic_name}{filter_name}', roi_stat,
-                                                          iteration)
+                log_metrics_stats(reference_image_array_ps[roi_inds], test_image_array_ps[roi_inds], f"Local_{roi_name}_")
 
     def set_filters(self, filters):
         self.filter = filters or {'': None}
