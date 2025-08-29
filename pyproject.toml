@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "img_quality_cil_stir"
+dynamic = ["version"]
+authors = [{name = "Georg Schramm", email = "georg.schramm@kuleuven.be"}, {name = "Junqi Tang"}, {name = "Imraj Singh"}]
+description = "minimal python package for an image quality callback for CIL and STIR images"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"]
+requires-python = '>=3'
+dependencies = [
+    'numpy>=1',
+    'scipy>=1',
+    'pandas>=1',
+    'tensorboard>=2',
+    'tensorboardx>=2',
+    'importlib_metadata; python_version<"3.8"',
+]
